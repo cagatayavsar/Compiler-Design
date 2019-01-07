@@ -1,0 +1,99 @@
+options {
+  DEBUG_PARSER = false; // Set to false to turn off token printing
+}
+PARSER_BEGIN(Parser)
+class Parser {
+  public static void main(String args[]) throws ParseException {
+     EqList el = new Parser(System.in).Parser();
+     System.out.println("Parser successful");
+     System.out.println(((NumExp)((TimesExp)el.el.e.e).e2).num);
+  }
+}
+PARSER_END(Parser)
+
+TOKEN : {
+  < PLUS: "+" >
+| < MINUS: "-" >
+| < TIMES: "*" >
+| < DIVIDE: "/" >
+| < MOD: "%" >
+| < POWER: "^" >
+| < ASSIGN: "=" >
+| < LPAREN: "(" >
+| < RPAREN: ")" > 
+| < #LETTER: ["a"-"z"] >
+| < #DIGIT: ["0"-"9"] >
+| < ID: <LETTER>(<LETTER>|<DIGIT>)* >
+| < NUM: (<DIGIT>)+ >
+}
+SKIP: {
+< "--" (~["\n", "\r"])* ("\n" | "\r" | "\r\n") >
+| " "
+| "\t"
+| "\n"
+| "\r"
+}
+EqList Parser() :
+{ EqList el; }
+{
+  el=S() <EOF> { return el; }
+}
+
+EqList S() :
+{ Eq e1; EqList el=null; }
+{
+  e1=Eq() (el=S() { return new EqList(e1, el); })?
+  { return new EqList(e1, el); }
+}
+
+Eq Eq() :
+{ Token t; Exp e1, e2; }
+{
+  t=<ID> <LPAREN> e1=F() <RPAREN> <ASSIGN> e2=E()
+   { return new Eq(t.image, e1, e2); }
+}
+
+Exp F() :
+{ Token t; }
+{
+   t=<ID> { return new IdExp(t.image); }
+ | t=<NUM> { return new NumExp(t.image); }
+}
+
+Exp E() :
+{ Exp e1, e2; String t="1"; }
+{
+  (<PLUS> | <MINUS> { t="-1"; })? e1=T() { e1 = new TimesExp(new NumExp(t), e1); } (
+      <PLUS> e2=T() { e1 = new PlusExp(e1, e2); }
+    | <MINUS> e2=T() { e1 = new MinusExp(e1, e2); }
+  )*
+  { return e1; }
+}
+
+Exp T() :
+{ Exp e1, e2; }
+{
+  e1=P() (
+      <TIMES> e2=P() { e1 = new TimesExp(e1, e2); }
+    | <DIVIDE> e2=P() { e1 = new DivideExp(e1, e2); }
+    | <MOD> e2=P() { e1 = new ModExp(e1, e2); }
+  )*
+  { return e1; }
+}
+
+Exp P() :
+{ Exp e1, e2; }
+{
+  e1=A() (<POWER> e2=P() { e1=new PowerExp(e1,e2); })?
+  { return e1; }
+}
+
+Exp A() :
+{ Token t; Exp e; }
+{
+   t=<NUM> { return new NumExp(t.image); }
+ | t=<ID> (<LPAREN> e=E() <RPAREN> { return new FnRExp(t.image, e); })?
+   { return new IdExp(t.image); } 
+}
+
+
